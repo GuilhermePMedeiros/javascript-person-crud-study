@@ -13,11 +13,8 @@ var inputCellphone = document.querySelector("#inputCellphone");
 var isUpadateSave = false;
 var currentId = 0;
 
-const getLocalStorage = () => JSON.parse(localStorage.getItem('db_person')) ?? []
-const setLocalStorage = (dbPerson) => localStorage.setItem("db_person", JSON.stringify(dbPerson))
-
-clearFildsTableModal();
-updateTable();
+const getLocalStorage = () => JSON.parse(localStorage.getItem('db_person')) ?? [];
+const setLocalStorage = (dbPerson) => localStorage.setItem("db_person", JSON.stringify(dbPerson));
 
 btnCreat.addEventListener('click', function() {
     isUpadateSave = false;
@@ -26,6 +23,26 @@ btnCreat.addEventListener('click', function() {
     
     clearFildsTableModal();
 }) 
+
+btnSaveOrUpdate.addEventListener('click', function() {
+    if(verifyFildsTableModal()){
+        if(!isUpadateSave){
+            if(savePerson(getPersonModalForm())){
+                alert("Pessoa criada com sucesso!")
+            } else {
+                alert("Não foi possivel criar pessoa!")
+            }
+        } else { 
+            if(updatePerson(currentId)){
+                alert("Pessoa atualizada com sucesso!")
+            } else {
+                alert("Não foi possivel atualizar pessoa!")
+            }
+        } 
+    }
+
+    updateTable();
+});
 
 function onClickEdit(id) {
     isUpadateSave = true;
@@ -54,30 +71,7 @@ function onClickDelete(id){
     }
 }
 
-btnSaveOrUpdate.addEventListener('click', function() {
-    if(verifyFildsTableModal()){
-        if(!isUpadateSave){
-            if(savePerson()){
-                alert("Pessoa criada com sucesso!")
-            } else {
-                alert("Não foi possivel criar pessoa!")
-            }
-        } else { 
-            if(updatePerson(currentId)){
-                alert("Pessoa atualizada com sucesso!")
-            } else {
-                alert("Não foi possivel atualizar pessoa!")
-            }
-        } 
-    }
-
-    updateTable();
-}); 
-
-//CRUD
-function savePerson(){
-    const dbPerson = getLocalStorage();
-
+function getPersonModalForm(){
     let lastId = findLastID();
 
     let newPerson = {
@@ -87,6 +81,13 @@ function savePerson(){
         date: inputDate.value ?? null,
         cellphone: inputCellphone.value ?? null
     }
+
+    return newPerson
+}
+
+//CRUD
+function savePerson(newPerson){
+    const dbPerson = getLocalStorage();
 
     dbPerson.push(newPerson);
     setLocalStorage(dbPerson);
@@ -157,6 +158,21 @@ function findPersonByCPF(cpf){
     return personReturn ?? null;
 }
 
+function isCPFregistered(cpfNumber){
+    const dbPerson = getLocalStorage ();
+    cpfNumber = String(cpfNumber);
+
+    let isRegistered = false;
+
+    dbPerson.forEach(person => {
+        if(person.cpf === cpfNumber){
+            isRegistered = true;
+        }
+    });
+
+    return isRegistered;
+}
+
 function deletePersonById(id){
     const dbPerson = getLocalStorage();
     let personReturn = findPersonById(id);
@@ -174,7 +190,6 @@ function deletePersonById(id){
 
 //TABLE
 function clearTable(){
-    const dbPerson = getLocalStorage();
     const table = document.querySelector("#personTable>tbody")
     table.innerHTML = null;
 }
@@ -189,7 +204,7 @@ function updateTable(){
         newRow.innerHTML = `
             <th scope="col">${person.id}</th>
             <th scope="col">${person.name}</th>
-            <th scope="col">${person.cpf}</th>
+            <th scope="col">${getCPFFormatted(person.cpf)}</th>
             <th scope="col">${person.date}</th>
             <th scope="col">${person.cellphone}</th>
             <td>
@@ -224,6 +239,18 @@ function verifyFildsTableModal(){
     if(!inputCPF.value){
         alert("CPF é um capo obrigatorio!");
         return false;
+    } else{
+        let isCPFvalid = cPFValidator(inputCPF.value)
+        if(!isCPFvalid){
+            alert("CPF invalido!")
+            return false;
+        }
+        
+        let isRegistered = isCPFregistered(inputCPF.value);
+        if (isRegistered & !isUpadateSave){
+            alert("CPF já cadastrado!")
+            return false;
+        }
     }
 
     return true;
@@ -231,9 +258,57 @@ function verifyFildsTableModal(){
 
 function clearFildsTableModal(){
     inputName.value = null;
-    inputCPF.value  = null;
     inputDate.value = null;
     inputCellphone.value = null;
+    inputCPF.value = null;
+}
+
+//Utils
+function getCPFFormatted(cpf){
+   cpf  = String(cpf);
+   if(!cpf){
+    return "-";
+   } else {
+     let cpfFormatted = cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");   
+     return cpfFormatted;
+   } 
+}
+
+function cPFValidator(cpf) {	
+	cpf = cpf.replace(/[^\d]+/g,'');	
+	if(cpf == '') return false;	
+
+    if (cpf.length != 11 || 
+		cpf == "00000000000" || 
+		cpf == "11111111111" || 
+		cpf == "22222222222" || 
+		cpf == "33333333333" || 
+		cpf == "44444444444" || 
+		cpf == "55555555555" || 
+		cpf == "66666666666" || 
+		cpf == "77777777777" || 
+		cpf == "88888888888" || 
+		cpf == "99999999999")
+			return false;		
+
+    add = 0;	
+	for (i=0; i < 9; i ++)		
+		add += parseInt(cpf.charAt(i)) * (10 - i);	
+		rev = 11 - (add % 11);	
+		if (rev == 10 || rev == 11)		
+			rev = 0;	
+		if (rev != parseInt(cpf.charAt(9)))		
+			return false;		
+	
+    add = 0;	
+	for (i = 0; i < 10; i ++)		
+		add += parseInt(cpf.charAt(i)) * (11 - i);	
+	rev = 11 - (add % 11);	
+	if (rev == 10 || rev == 11)	
+		rev = 0;	
+	if (rev != parseInt(cpf.charAt(10)))
+		return false;		
+	return true;   
 }
 
 //Seach Modal
@@ -255,3 +330,11 @@ btnFindPerson.addEventListener('click', function() {
     }
     
 })
+
+//init method
+function init(){
+    clearFildsTableModal();
+    updateTable();
+}
+
+init();
